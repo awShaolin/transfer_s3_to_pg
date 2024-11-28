@@ -1,0 +1,8 @@
+logs/
+.env
+__pycache__/
+plugins/
+config/
+venv/
+test.py
+s3_config.ini
