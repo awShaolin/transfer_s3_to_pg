@@ -149,15 +149,15 @@ def insert_data_to_postgres(pg_engine, schema_name, table_name, df):
     logging.info(f">>> Inserting data to postgres table - {schema_name}.{table_name}.")
 
     ids_in_df = set(df["id"].to_list())
-    ids_in_df_str = ','.join(map(str, ids_in_df))
 
     with pg_engine.connect() as conn:
         query = f"""
-                    SELECT id, s3_date 
-                    FROM {schema_name}.{table_name} 
-                    WHERE id IN ({', '.join(f"'{id_value}'" for id_value in ids_in_df)})
-                """
-        ids_in_pg = conn.execute(query).fetchall()
+            SELECT id, s3_date 
+            FROM systech.dr_sales
+            WHERE id IN ({', '.join(f"'{id_value}'" for id_value in ids_in_df)})
+        """
+        result = conn.execute(text(query))
+        ids_in_pg = result.fetchall()
         ids_in_pg = {row[0]: row[1] for row in ids_in_pg}
 
         logging.info(f">>> Will be checked {len(ids_in_pg)} id's in PostgreSQL and DataFrame.")
@@ -178,11 +178,12 @@ def insert_data_to_postgres(pg_engine, schema_name, table_name, df):
         logging.info(f">>> {len(to_delete_in_df)} rows will be deleted from the DataFrame.")
 
         if to_delete_in_pg:
-            conn.execute(f"DELETE FROM {schema_name}.{table_name} WHERE id IN ({', '.join(f"'{id_value}'" for id_value in ids_in_df)})")
+            to_delete_in_pg_str = ', '.join(f"'{id_value}'" for id_value in to_delete_in_pg)
+            conn.execute(f"DELETE FROM {schema_name}.{table_name} WHERE id IN ({to_delete_in_pg_str})")
 
         df_filtered = df[~df["id"].isin(to_delete_in_df)]
 
-        logging.info(">>> Suggested rows were deleted from {schema_name}.{table_name} and DataFrame.")
+        logging.info(f">>> Suggested rows were deleted from {schema_name}.{table_name} and DataFrame.")
         logging.info(f"{len(df_filtered)} rows will be inserted to PostgreSQL.")
         try:
             df_filtered.to_sql(table_name, conn, schema=schema_name, if_exists="append", index=False, chunksize=50000)
